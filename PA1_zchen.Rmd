@@ -1,0 +1,89 @@
+---
+title: "rpp1"
+author: "zchen"
+date: "September 18, 2015"
+output: html_document
+---
+
+Download data, unzip and load into R
+
+```{r, echo=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",
+              destfile="act.zip", method="libcurl")
+unzip("act.zip")
+act <- read.csv("activity.csv")
+```
+
+What is mean total number of steps taken per day?
+
+Calculate total steps for each day, then make a hitogram of the daily steps,
+report mean and median of daily steps.
+
+The mean and median of daily steps are 10766 and 10765, respectively.
+
+```{r, echo=TRUE}
+daysum1 <- tapply(act$steps, act$date, sum)
+hist(daysum1, breaks=22, col="green", xlab="Total steps in each day",
+     main="Histogram of total daily steps")
+mean(daysum1, na.rm=TRUE)
+median(daysum1, na.rm=TRUE)
+```
+
+What is the average daily activity pattern?
+The maximum number of steps are from 8:35 (206 steps) in the morning.
+
+```{r, echo=TRUE}
+avginterv <- tapply(act$steps, act$interval, mean, na.rm=TRUE)
+plot(names(avginterv), avginterv, type="l", xlab="Time (5 minute interval)", ylab="Average steps", col="blue")
+tail(sort(avginterv),1)
+```
+
+Imputing missing values
+Total number of missing values is 2304.
+
+Asign average number of steps of 5 minute interval to corresponding 5 minute interval
+of the days with missing values. The mean and median of the new data set are 10765.6
+and 10762, respectively, very close to the values before imputation.
+
+```{r, echo=TRUE}
+sum(is.na(act$steps))
+subset(act, is.na(steps)) -> actna
+subset(act, !is.na(steps)) -> act1
+tapply(act1$steps, act1$interval, mean, na.rm=TRUE) -> intvm
+for (i in c(names(intvm))) {
+    actna[actna$interval==i,]$steps <- round(intvm[[i]], 0)
+}
+act2 <- rbind(act1, actna)
+daysum2 <- tapply(act2$steps, act2$date, sum)
+hist(daysum2, breaks=22, col="blue", xlab="Total steps in each day",
+     main="Histogram of total daily steps after imputation")
+mean(daysum2, na.rm=TRUE)
+median(daysum2, na.rm=TRUE)
+```
+
+Are there differences in activity patterns between weekdays and weekends?
+Split the imputed dataset into two, based on whether the date is weekday or weekend.
+Then generate average daily steps for weekday and weekend, respectively, and make
+histograms for the two daily average steps of 5 minute interval.
+
+It seems clear that more people get up earlier on weekdays (around 6 am) than weekend
+days and more people sleep late during weekend than weekdays.
+
+```{r, echo=TRUE}
+library(dplyr)
+act2 <- mutate(act2, weekday=weekdays(as.Date(act2$date)))
+act2$weekday <- ifelse(act2$weekday=="Saturday", "weekend", act2$weekday)
+act2$weekday <- ifelse(act2$weekday=="Sunday", "weekend", act2$weekday)
+act2$weekday <- ifelse(act2$weekday!="weekend", "weekday", act2$weekday)
+
+act2weekday <- subset(act2, act2$weekday=="weekday")
+act2weekend <- subset(act2, act2$weekday=="weekend")
+
+## make hitograms
+par(mfrow=c(2,1),mar=c(4,4,1,1))
+avgintervweekday <- tapply(act2weekday$steps, act2weekday$interval, mean, na.rm=TRUE)
+plot(names(avgintervweekday), avgintervweekday, type="l", xlab="Weekday time (5 minute interval)", ylab="Weekday average steps", col="blue", ylim=c(0,240))
+
+avgintervweekend <- tapply(act2weekend$steps, act2weekend$interval, mean, na.rm=TRUE)
+plot(names(avgintervweekend), avgintervweekend, type="l", xlab="Weekend time (5 minute interval)", ylab="Weekend average steps", col="green", ylim=c(0,240))
+```
